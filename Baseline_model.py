@@ -84,7 +84,7 @@ optimizer = optim.SGD(baselineNN.parameters(),  lr=1e-10)
 
 # split train test data, using Kfold
 test_accuracy = []
-for fold_num in range(1, 6):
+for fold_num in range(1, 7):
     train_data, test_data, train_label, test_label = SplitFolder(inputs, baseline_label, 
                                                     folds_sorted[:, 1], fold_num)
 
@@ -100,6 +100,7 @@ for fold_num in range(1, 6):
 
     num_train = train_data.shape[0]
     num_valid = valid_data.shape[0]
+    num_test = test_data.shape[0]
 
     # transfer data type
     train_data = torch.from_numpy(train_data[:, 1:].astype(float))
@@ -111,69 +112,86 @@ for fold_num in range(1, 6):
 
     # init variables
     step = 0
-    mini_batches = 500
-    running_loss = 0.0
     train_losses, valid_losses, valid_accuracy= [], [], []
+
+    train_data = train_data.type(torch.FloatTensor)
+    train_data = Variable(train_data).to(device)
+    train_label = train_label.to(device).float()
+
+    valid_data = valid_data.type(torch.FloatTensor)
+    valid_data = Variable(valid_data).to(device)
+    valid_label = valid_label.to(device).float()
+
+    test_data = test_data.type(torch.FloatTensor)
+    test_data = Variable(test_data).to(device)
+    test_label = valid_label.to(device).float()
+
+    test_outputs = []
+    mini_batches = 10
+    num_epoch = 50
+
     ## train the network
-    for epoch in range(50):  # loop over the dataset multiple times
-        for index, (data, labels) in enumerate(zip(valid_data, valid_label)):
+    for epoch in range(num_epoch):  # loop over the dataset multiple times
+        for index in range(num_train):
+            baselineNN.train()
+        
+            # init variable
+            train_loss = 0
+            valid_loss = 0     
+            accuracy = 0
+
             # step + 1
             step += 1
 
             # zero the parameter gradients
             optimizer.zero_grad()
-        
-            # forward + backward + optimize
-            data = data.type(torch.FloatTensor)
-            data = Variable(data).to(device)
-            outputs = baselineNN(data)
-            labels = labels.view(-1, 1).to(device)
-            loss = criterion(outputs, labels.float())
+
+            # do SGD
+            outputs = baselineNN(train_data[index])
+            loss = criterion(outputs, train_label[index])
             loss.backward()
+        
             optimizer.step()
-
-            # print loss
-            running_loss += loss.cpu().data.numpy()
-            if step % mini_batches == 0:  
-                valid_loss = 0
-                accuracy = 0
-                baselineNN.eval()
+        
+            if step % mini_batches == 0:
                 with torch.no_grad():
-                    for index, (data, labels) in enumerate(zip(test_data, test_label)):
-                        data = data.type(torch.FloatTensor)
-                        data = Variable(data).to(device)
-                        labels = labels.view(-1, 1).to(device)
-                        valid_outputs = baselineNN(data)
-                        accuracy += Accuracy(valid_outputs, labels.float())
-                        loss = criterion(valid_outputs, labels.float())
-                        valid_loss += loss.cpu().data.numpy()
-                    train_losses.append(running_loss/mini_batches)
-                    valid_losses.append(valid_loss/num_valid) 
-                    valid_accuracy.append(accuracy/num_valid * 100)
-                    baselineNN.train()
-                    running_loss = 0.0
+                    baselineNN.eval()
+        
+                    # calculate the loss of train and valid
+                    train_outputs = baselineNN(train_data)
+                    train_loss = criterion(train_outputs, train_label)
+                    train_losses.append(train_loss.cpu().data.numpy())
+        
+                    valid_outputs = baselineNN(valid_data)
+                    valid_loss = criterion(valid_outputs, valid_label)  
+                    valid_losses.append(valid_loss.cpu().data.numpy())
+        
+                test_output = baselineNN(test_data)
+                test_outputs.append(test_output)
 
-        # plot
-        plt.plot(train_losses, label='Training loss')
-        plt.plot(valid_losses, label='Validation loss')
-        plt.legend(frameon=False)
-        plt.show()
+    # choose the min value from valid list
+    min_loss_train = min(train_losses)
+    min_train_index = train_losses.index(min(train_losses))
+    min_loss_valid = min(valid_losses)
+    best_parameter_value = valid_losses.index(min(valid_losses))
+    best_output = test_outputs[best_parameter_value]
 
-        # save the parameter
-        torch.save(baselineNN.state_dict(), 'model.pth')
+    # plot
+    plt.plot(train_losses, label = 'Training loss')
+    plt.plot(valid_losses, label = 'Validation loss')
+    plt.scatter(min_train_index, min_loss_train, label = 'min train value', color='green')
+    plt.scatter(best_parameter_value, min_loss_valid, label = 'min valid value', color='black')
+    plt.legend(frameon=False)
+    plt.xlabel("step of every min-bath")
+    plt.ylabel("loss")
+    plt.show()
 
-    # load the net work
-    baselineNN = BaselineNN().to(device)
-    baselineNN.load_state_dict(torch.load('model.pth'))
 
     # test data
     with torch.no_grad():
         accuracy = 0
-        for index, (data, labels) in enumerate(zip(test_data, test_label)):
-            data = data.type(torch.FloatTensor)
-            data = Variable(data).to(device)
-            labels = labels.view(-1, 1).to(device)
-            accuracy += Accuracy(valid_outputs, labels.float())
-        test_accuracy.append(accuracy/num_valid * 100)
+        for index in range(num_test):
+            accuracy = accuracy + Accuracy(best_output[index], test_label[index])
+            test_accuracy.append(accuracy/num_valid * 100)
 
 print(test_accuracy)
