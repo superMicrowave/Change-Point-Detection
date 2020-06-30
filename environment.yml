@@ -3,5 +3,4 @@ dependencies:
   - numpy
   - pandas
   - pytorch
-  - pip:
-    - matplotlib==2.2.5
+  - matplotlib==2.2.5
