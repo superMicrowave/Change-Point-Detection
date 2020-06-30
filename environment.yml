@@ -1,0 +1,7 @@
+name: stats
+dependencies:
+  - numpy
+  - pandas
+  - pytorch
+  - pip:
+    - matplotlib==2.2.5
