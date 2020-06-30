@@ -1,6 +1,0 @@
-name: emacs1
-dependencies:
-  - numpy
-  - pandas
-  - pytorch
-  - matplotlib==2.2.5
