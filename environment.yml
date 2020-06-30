@@ -1,4 +1,4 @@
-name: stats
+name: emacs1
 dependencies:
   - numpy
   - pandas
