@@ -2,7 +2,7 @@
 # Change-Point-Detection
 Python3 version 3.6.1 or greater is REQUIRED
 
-*Example 
+***Example 
 
 **1. Environment setup
 These steps assume a linux system.
