@@ -2,6 +2,9 @@
 * Change-Point-Detection
 Python3 version 3.6.1 or greater is REQUIRED
 
+View our script at:
+https://github.com/jguzman-tech/TensorFlowNN/blob/master/main.py
+
 ** 1. Environment setup
 These steps assume a linux system.
 *** 1.1 First clone repo
