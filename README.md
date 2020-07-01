@@ -1,4 +1,4 @@
-# Change-Point-Detection
+
 * Change-Point-Detection
 Python3 version 3.6.1 or greater is REQUIRED
 
