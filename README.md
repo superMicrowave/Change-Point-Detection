@@ -2,18 +2,18 @@
 # Change-Point-Detection
 Python3 version 3.6.1 or greater is REQUIRED
 
-** 1. Environment setup
+**1. Environment setup
 These steps assume a linux system.
-*** 1.1. First clone repo
+***1.1. First clone repo
 git clone git@github.com/superMicrowave/Change-Point-Detection
-*** 1.2. In new terminal, load modules
+***1.2. In new terminal, load modules
 #+BEGIN_SRC
 module load glibc/2.14
 #+END_SRC
 #+BEGIN_SRC
 module load anaconda3
 #+END_SRC
-**** 1.2.1 avoid lib64 missing
+****1.2.1 avoid lib64 missing
 module glibc used for avoiding lib64 missing. you can use command 
 #+BEGIN_SRC
 ls -l /lib64/libc.so.6
