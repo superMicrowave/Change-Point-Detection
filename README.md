@@ -12,56 +12,73 @@ These steps assume a linux system.
 git clone git@github.com:jguzman-tech/TensorFlowNN.git
 *** 1.2. Create an arbitrary directory
 #+BEGIN_SRC
-mkdir ./.venv
-#+END_SRC
-*** 1.3. Create a virtual environment
-#+BEGIN_SRC
-python3 -m venv ./.venv
-#+END_SRC
-*** 1.4. Activate the virtual environment
-#+BEGIN_SRC
-. ./.venv/bin/activate
-#+END_SRC
-**** 1.4.1 You can use an easy to remember bash alias to activate the venv
-***** 1.4.1.1 Open your ~/.bashrc
-#+BEGIN_SRC
-vim ~/.bashrc
-#+END_SRC
-***** 1.4.1.2 Add this line to your ~/.bashrc
-#+BEGIN_SRC
-alias act=". ./.venv/bin/activate"
-#+END_SRC
-You can replace act with any valid bash identifier you want.
-***** 1.4.1.3 Now reload your ~/.bashrc
-#+BEGIN_SRC
-source ~/.bashrc
-#+END_SRC
-***** 1.4.1.4 Now you can use the "act" command
-#+BEGIN_SRC
-act
-#+END_SRC
-This will be saved on all future shells sessions for your current user.
-*** 1.5. Install module requirements
-#+BEGIN_SRC
-pip3 install -r ./requirements.txt
-#+END_SRC
-** 2. Execution
-To see our help message execute:
-python3 main.py -h
-#+BEGIN_SRC
-usage: main.py [-h] max_epochs_one max_epochs_two max_epochs_three
 
-Create three NN models with TensorFlow
+# Change-Point-Detection
+Python3 version 3.6.1 or greater is REQUIRED
 
-positional arguments:
-  max_epochs_one    maximum epochs for the 10 hidden units model
-  max_epochs_two    maximum epochs for the 100 hidden units model
-  max_epochs_three  maximum epochs for the 1000 hidden units model
-
-optional arguments:
-  -h, --help        show this help message and exit
-#+END_SRC
-** 3. Reproduce our results
+** 1. Environment setup
+These steps assume a linux system.
+*** 1.1. First clone repo
+git clone git@github.com/superMicrowave/Change-Point-Detection
+*** 1.2. In new terminal, load modules
 #+BEGIN_SRC
-python3 main.py 300 300 300
+module load glibc/2.14
 #+END_SRC
+#+BEGIN_SRC
+module load anaconda3
+#+END_SRC
+**** 1.2.1 avoid lib64 missing
+module glibc used for avoiding lib64 missing. you can use command 
+#+BEGIN_SRC
+ls -l /lib64/libc.so.6
+#+END_SRC
+
+to check lib64. If lib64 works, you do not need to load glibc module
+*** 1.3. Create environment
+#+BEGIN_SRC
+conda create -n emacs1 -c conda-forge emacs
+#+END_SRC
+*** 1.4. Activate environment
+#+BEGIN_SRC
+conda activate emacs1
+#+END_SRC
+*** 1.5 Install packages needed for project
+#+BEGIN_SRC
+conda install pytorch torchvision cpuonly -c pytorch
+#+END_SRC
+#+BEGIN_SRC
+conda install -c anaconda numpy
+#+END_SRC
+#+BEGIN_SRC
+conda install -c conda-forge pandana
+#+END_SRC
+#+BEGIN_SRC
+conda install -c conda-forge matplotlib
+#+END_SRC
+*** 1.6 Open editor
+#+BEGIN_SRC
+emacs &
+#+END_SRC
+
+** 2. Environment already built
+use following command to start environment
+#+BEGIN_SRC
+module load glibc/2.14
+#+END_SRC
+#+BEGIN_SRC
+module load anaconda3
+#+END_SRC
+#+BEGIN_SRC
+conda activate emacs1
+#+END_SRC
+#+BEGIN_SRC
+emacs &
+#+END_SRC
+
+** 3. Execute
+*** 3.1 opend accuracy file
+*** 3.2 run python
+#+BEGIN_SRC
+M-x run-python
+#+END_SRC
+*** 3.3 eval buffer
