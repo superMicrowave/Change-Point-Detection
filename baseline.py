@@ -8,25 +8,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 
-## load the realating csv file
-dir_path = 'Data/'
-inputs_file = 'inputs.csv'
-outputs_file = 'outputs.csv'
-
-inputs = pd.read_csv(dir_path + inputs_file) #used for based line model 
-outputs = pd.read_csv(dir_path + outputs_file)
-folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
-   'neuroblastoma-data/master/data/systematic/cv/sequenceID/folds.csv')
-
-## procssing data
-baseline_label = outputs.values
-num_id = baseline_label.shape[0]
-num_feature = inputs.shape[1] - 1
-inputs = np.array(inputs)
-folds = np.array(folds)
-_, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
-folds_sorted = folds[cor_index] # use for first split
-
+## all the fucntion
 ## split data by folder
 # function to split data
 def SplitFolder(inputs, labels, folders, fold_id):
@@ -37,6 +19,16 @@ def SplitFolder(inputs, labels, folders, fold_id):
     test_label = labels[bool_suq]
 
     return train_data, test_data, train_label, test_label
+
+# this fucntion we transfer the data and label type from numpy to tensor
+def Typetransfer(data, label):
+    data = torch.from_numpy(data[:, 1:].astype(float))
+    data = data.type(torch.FloatTensor)
+    data = Variable(data).to(device)
+    label = torch.from_numpy(label[:, 1:].astype(float))
+    label = label.to(device).float()
+    
+    return data, label
 
 ## squareHangLoss function
 class SquareHingeLoss(nn.Module):
@@ -81,10 +73,29 @@ def Accuracy(predicated_y, target_y):
     else:
         return 0
 
+## load the realating csv file
+dir_path = 'Data/'
+inputs_file = 'inputs.csv'
+outputs_file = 'outputs.csv'
+
+inputs = pd.read_csv(dir_path + inputs_file) #used for based line model 
+outputs = pd.read_csv(dir_path + outputs_file)
+folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
+   'neuroblastoma-data/master/data/systematic/cv/sequenceID/folds.csv')
+
+## procssing data
+baseline_label = outputs.values
+num_id = baseline_label.shape[0]
+num_feature = inputs.shape[1] - 1
+inputs = np.array(inputs)
+folds = np.array(folds)
+_, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
+folds_sorted = folds[cor_index] # use for first split
+
 ## define the baseline network
-class BaselineNN(nn.Module):
+class LinearNN(nn.Module):
     def __init__(self):
-        super(BaselineNN, self).__init__()
+        super(LinearNN, self).__init__()
         self.fc1 = nn.Linear(num_feature, 1)
 
     def forward(self, x):
@@ -92,15 +103,15 @@ class BaselineNN(nn.Module):
         return x
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
-baselineNN = BaselineNN().to(device)
+model = LinearNN().to(device)
 
 ## define the loss funciton
 criterion = SquareHingeLoss()
-stepsize = 1e-15
-optimizer = optim.SGD(baselineNN.parameters(),  lr=stepsize)
+stepsize = 1e-10
+optimizer = optim.SGD(model.parameters(),  lr=stepsize)
 
 # split train test data, using Kfold
-test_accuracy = []
+line_test_acc = []
 for fold_num in range(1, 7):
     train_data, test_data, train_label, test_label = SplitFolder(inputs, baseline_label, 
                                                     folds_sorted[:, 1], fold_num)
@@ -115,34 +126,17 @@ for fold_num in range(1, 7):
     subtrain_data, valid_data, subtrain_label, valid_label = SplitFolder(train_data, train_label, 
                                                     sed_fold, 1)
 
+    # transfer data type
     num_train = subtrain_data.shape[0]
     num_valid = valid_data.shape[0]
     num_test = test_data.shape[0]
-
-    # transfer data type
-    subtrain_data = torch.from_numpy(subtrain_data[:, 1:].astype(float))
-    valid_data = torch.from_numpy(valid_data[:, 1:].astype(float))
-    test_data = torch.from_numpy(test_data[:, 1:].astype(float))
-    subtrain_label = torch.from_numpy(subtrain_label[:, 1:].astype(float))
-    valid_label = torch.from_numpy(valid_label[:, 1:].astype(float))
-    test_label = torch.from_numpy(test_label[:, 1:].astype(float))
+    subtrain_data, subtrain_label = Typetransfer(subtrain_data, subtrain_label)
+    valid_data, valid_label = Typetransfer(valid_data, valid_label)
+    test_data, test_label = Typetransfer(test_data, test_label)
 
     # init variables
     step = 0
     train_losses, valid_losses, valid_accuracy= [], [], []
-
-    subtrain_data = subtrain_data.type(torch.FloatTensor)
-    subtrain_data = Variable(subtrain_data).to(device)
-    subtrain_label = subtrain_label.to(device).float()
-
-    valid_data = valid_data.type(torch.FloatTensor)
-    valid_data = Variable(valid_data).to(device)
-    valid_label = valid_label.to(device).float()
-
-    test_data = test_data.type(torch.FloatTensor)
-    test_data = Variable(test_data).to(device)
-    test_label = valid_label.to(device).float()
-
     test_outputs = []
     mini_batches = 10
     num_epoch = 50
@@ -150,7 +144,7 @@ for fold_num in range(1, 7):
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
         for index in range(num_train):
-            baselineNN.train()
+            model.train()
         
             # init variable
             train_loss = 0
@@ -164,8 +158,7 @@ for fold_num in range(1, 7):
             optimizer.zero_grad()
 
             # do SGD
-            outputs = baselineNN(subtrain_data[index])
-            print(outputs)
+            outputs = model(subtrain_data[index])
             loss = criterion(outputs, subtrain_label[index])
             loss.backward()
         
@@ -173,18 +166,18 @@ for fold_num in range(1, 7):
         
             if step % mini_batches == 0:
                 with torch.no_grad():
-                    baselineNN.eval()
+                    model.eval()
         
                     # calculate the loss of train and valid
-                    train_outputs = baselineNN(subtrain_data)
+                    train_outputs = model(subtrain_data)
                     train_loss = criterion(train_outputs, subtrain_label)
                     train_losses.append(train_loss.cpu().data.numpy())
         
-                    valid_outputs = baselineNN(valid_data)
+                    valid_outputs = model(valid_data)
                     valid_loss = criterion(valid_outputs, valid_label)  
                     valid_losses.append(valid_loss.cpu().data.numpy())
         
-                test_output = baselineNN(test_data)
+                test_output = model(test_data)
                 test_outputs.append(test_output)
 
     # choose the min value from valid list
@@ -210,7 +203,7 @@ for fold_num in range(1, 7):
         accuracy = 0
         for index in range(num_test):
             accuracy = accuracy + Accuracy(best_output[index], test_label[index])
-        test_accuracy.append(accuracy/num_valid * 100)
+        line_test_acc.append(accuracy/num_valid * 100)
 
 
 
