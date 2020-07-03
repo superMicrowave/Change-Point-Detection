@@ -8,25 +8,6 @@ import torch.optim as optim
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 
-## load the realating csv file
-dir_path = 'Data/'
-inputs_file = 'inputs.csv'
-outputs_file = 'outputs.csv'
-
-inputs = pd.read_csv(dir_path + inputs_file) #used for based line model 
-outputs = pd.read_csv(dir_path + outputs_file)
-folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
-   'neuroblastoma-data/master/data/systematic/cv/sequenceID/folds.csv')
-
-## procssing data
-label = outputs.values
-num_id = label.shape[0]
-num_feature = inputs.shape[1] - 1
-inputs = np.array(inputs)
-folds = np.array(folds)
-_, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
-folds_sorted = folds[cor_index] # use for first split
-
 ## split data by folder
 # function to split data
 def SplitFolder(inputs, labels, folders, fold_id):
@@ -37,6 +18,18 @@ def SplitFolder(inputs, labels, folders, fold_id):
     test_label = labels[bool_suq]
 
     return train_data, test_data, train_label, test_label
+
+# this fucntion we transfer the data and label type from numpy to tensor
+def Typetransfer(data, label, channel):
+    num_data = data.shape[0]
+    num_feature = data.shape[1] - 1
+    data = torch.from_numpy(data[:, 1:].astype(float)).view(num_data, channel, num_feature)
+    data = data.type(torch.FloatTensor)
+    data = Variable(data).to(device)
+    label = torch.from_numpy(label[:, 1:].astype(float))
+    label = label.to(device).float()
+    
+    return data, label
 
 ## squareHangLoss function
 class SquareHingeLoss(nn.Module):
@@ -86,6 +79,32 @@ class SpatialPyramidPooling(nn.Module):
             pooled.append(pool_fun(feature_maps))
         return torch.cat(pooled, dim=2)
 
+## accuracy function
+def Accuracy(predicated_y, target_y):
+    if (np.logical_and(target_y[0] - predicated_y < 0,
+                         predicated_y - target_y[1] < 0)):
+        return 1
+    else:
+        return 0
+
+## load the realating csv file
+dir_path = 'Data/'
+inputs_file = 'inputs.csv'
+outputs_file = 'outputs.csv'
+
+inputs = pd.read_csv(dir_path + inputs_file) #used for based line model 
+outputs = pd.read_csv(dir_path + outputs_file)
+folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
+   'neuroblastoma-data/master/data/systematic/cv/sequenceID/folds.csv')
+
+## procssing data
+label = outputs.values
+num_id = label.shape[0]
+num_feature = inputs.shape[1] - 1
+inputs = np.array(inputs)
+folds = np.array(folds)
+_, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
+folds_sorted = folds[cor_index] # use for first split
 
 class convNet(nn.Module):
     def __init__(self):
@@ -117,15 +136,7 @@ class convNet(nn.Module):
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = convNet().to(device)
 criterion = SquareHingeLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-5)
-
-## accuracy function
-def Accuracy(predicated_y, target_y):
-    if (np.logical_and(target_y[0] - predicated_y < 0,
-                         predicated_y - target_y[1] < 0)):
-        return 1
-    else:
-        return 0
+optimizer = optim.Adam(model.parameters(),  lr=1e-5)
 
 # split train test data, using Kfold
 cnn_test_acc = []
@@ -140,42 +151,22 @@ for fold_num in range(1, 7):
     sed_fold = np.concatenate((sed_fold, left), axis=0)
     np.random.shuffle(sed_fold)
 
-    subtrain_data, valid_data, subtrain_label, valid_label = SplitFolder(train_data, train_label, 
+    subtrain_data, valid_data, subtrain_label, valid_label = SplitFolder(train_data, train_label,             
                                                                          sed_fold, 1)
-
+    
+    # transfer data
     num_train = subtrain_data.shape[0]
     num_valid = valid_data.shape[0]
     num_test = test_data.shape[0]
     channel = 1
-
-    # transfer data type
-    subtrain_data = torch.from_numpy(subtrain_data[:, 1:].astype(float)).view(num_train, channel, num_feature)
-    valid_data = torch.from_numpy(valid_data[:, 1:].astype(float)).view(num_valid, channel, num_feature)
-    test_data = torch.from_numpy(test_data[:, 1:].astype(float)).view(num_test, channel, num_feature)
-    subtrain_label = torch.from_numpy(subtrain_label[:, 1:].astype(float))
-    valid_label = torch.from_numpy(valid_label[:, 1:].astype(float))
-    test_label = torch.from_numpy(test_label[:, 1:].astype(float))
+    subtrain_data, subtrain_label = Typetransfer(subtrain_data, subtrain_label, channel)
+    valid_data, valid_label = Typetransfer(valid_data, valid_label, channel)
+    test_data, test_label = Typetransfer(test_data, test_label, channel)
 
     # init variables
     step = 0
     train_losses, valid_losses, valid_accuracy= [], [], []
-
     parameters = []
-    grad_before = []
-    grad_after = []
-
-    subtrain_data = subtrain_data.type(torch.FloatTensor)
-    subtrain_data = Variable(subtrain_data).to(device)
-    subtrain_label = subtrain_label.to(device).float()
-
-    valid_data = valid_data.type(torch.FloatTensor)
-    valid_data = Variable(valid_data).to(device)
-    valid_label = valid_label.to(device).float()
-
-    test_data = test_data.type(torch.FloatTensor)
-    test_data = Variable(test_data).to(device)
-    test_label = valid_label.to(device).float()
-
     test_outputs = []
     cnn_test_accuracy = []
     num_epoch = 50
@@ -183,7 +174,7 @@ for fold_num in range(1, 7):
 
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
-        for index in range(100):
+        for index in range(num_train):
             model.train()
         
             # init variable
@@ -197,7 +188,7 @@ for fold_num in range(1, 7):
             # zero the parameter gradients
             optimizer.zero_grad()
 
-            # do SGD
+            # do ADM
             outputs = model(subtrain_data[index].unsqueeze(0))
         
             loss = criterion(outputs, subtrain_label[index])
