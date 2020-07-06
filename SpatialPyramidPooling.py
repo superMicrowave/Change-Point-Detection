@@ -1,6 +1,7 @@
 
 ## import package
 from function import *
+from data_process import inputs, label, folds_sorted
 
 # this fucntion we transfer the data and label type from numpy to tensor
 def Typetransfer(data, label, channel):
@@ -36,39 +37,16 @@ class SpatialPyramidPooling(nn.Module):
             pooled.append(pool_fun(feature_maps))
         return torch.cat(pooled, dim=2)
 
-## load the realating csv file
-dir_path = 'Data/'
-inputs_file = 'inputs.csv'
-outputs_file = 'outputs.csv'
-
-inputs = pd.read_csv(dir_path + inputs_file) #used for based line model 
-outputs = pd.read_csv(dir_path + outputs_file)
-folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
-   'neuroblastoma-data/master/data/systematic/cv/sequenceID/folds.csv')
-
-## procssing data
-label = outputs.values
-num_id = label.shape[0]
-num_feature = inputs.shape[1] - 1
-seq_id = inputs.iloc[:, 0].to_frame()
-inputs = preprocessing.scale(inputs.iloc[:, 1:])
-inputs = pd.concat([seq_id, pd.DataFrame(inputs)], axis=1)
-inputs = np.array(inputs)
-folds = np.array(folds)
-_, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
-folds_sorted = folds[cor_index] # use for first split
-
+# build the net work
 class convNet(nn.Module):
     def __init__(self):
         super(convNet, self).__init__()
         self.spp = SpatialPyramidPooling('max')
         self.layer1 = nn.Sequential(
             nn.Conv1d(1, 5, 9), #1 1 117 -> 1 5 109
-            nn.ReLU(True)
         )
         self.layer2 = nn.Sequential(
             nn.Linear(5*21, 1),
-            nn.ReLU(True)
         )
     
     def forward(self, x):
@@ -104,7 +82,7 @@ for fold_num in range(1, 7):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = convNet().to(device)
     criterion = SquareHingeLoss()
-    optimizer = optim.Adam(model.parameters(),  lr=1e-4)
+    optimizer = optim.Adam(model.parameters(),  lr=1e-5)
 
     # transfer data
     num_train = subtrain_data.shape[0]
@@ -115,15 +93,14 @@ for fold_num in range(1, 7):
     valid_data, valid_label = Typetransfer(valid_data, valid_label, channel)
     test_data, test_label = Typetransfer(test_data, test_label, channel)
 
-
     # init variables
     step = 0
     train_losses, valid_losses, valid_accuracy= [], [], []
     parameters = []
     test_outputs = []
     cnn_test_accuracy = []
-    num_epoch = 2
-    mini_batches = 5
+    num_epoch = 10
+    mini_batches = 10
 
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
