@@ -1,23 +1,6 @@
- 
+
 ## import package
-import torch
-import pandas as pd
-import numpy as np
-import torch.nn as nn
-import torch.optim as optim
-from torch.autograd import Variable
-import matplotlib.pyplot as plt
-
-## split data by folder
-# function to split data
-def SplitFolder(inputs, labels, folders, fold_id):
-    bool_suq = folders == fold_id
-    train_data = inputs[~bool_suq]
-    test_data = inputs[bool_suq]
-    train_label = labels[~bool_suq]
-    test_label = labels[bool_suq]
-
-    return train_data, test_data, train_label, test_label
+from function import *
 
 # this fucntion we transfer the data and label type from numpy to tensor
 def Typetransfer(data, label, channel):
@@ -30,32 +13,6 @@ def Typetransfer(data, label, channel):
     label = label.to(device).float()
     
     return data, label
-
-## squareHangLoss function
-class SquareHingeLoss(nn.Module):
-    def __init__(self):
-        super(SquareHingeLoss,self).__init__()
-    
-    def ifelse(self, x):
-        crit = (x - 1 < 0)
-        copy_x = x.clone()
-        copy_x[crit] = (x[crit] - 1) ** 2
-        copy_x[~crit] = 0
-        return torch.sum(copy_x)
-       
-    def forward(self, predicated_y, target_y):
-        num = predicated_y.size()[0]
-        
-        if num == 1:
-            target_y = target_y.view(-1, 1)
-            result = (self.ifelse(predicated_y - target_y[0]) +
-                     self.ifelse(target_y[1] - predicated_y))
-            
-        else:
-            result = (self.ifelse(predicated_y - target_y[:, 0]) +
-                     self.ifelse(target_y[:, 1] - predicated_y)) / num
-        
-        return result
 
 # ssp function,based on the AdaptiveMax/Avg method built in torch
 class SpatialPyramidPooling(nn.Module):
@@ -79,14 +36,6 @@ class SpatialPyramidPooling(nn.Module):
             pooled.append(pool_fun(feature_maps))
         return torch.cat(pooled, dim=2)
 
-## accuracy function
-def Accuracy(predicated_y, target_y):
-    if (np.logical_and(target_y[0] - predicated_y < 0,
-                         predicated_y - target_y[1] < 0)):
-        return 1
-    else:
-        return 0
-
 ## load the realating csv file
 dir_path = 'Data/'
 inputs_file = 'inputs.csv'
@@ -101,6 +50,9 @@ folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
 label = outputs.values
 num_id = label.shape[0]
 num_feature = inputs.shape[1] - 1
+seq_id = inputs.iloc[:, 0].to_frame()
+inputs = preprocessing.scale(inputs.iloc[:, 1:])
+inputs = pd.concat([seq_id, pd.DataFrame(inputs)], axis=1)
 inputs = np.array(inputs)
 folds = np.array(folds)
 _, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
@@ -133,11 +85,6 @@ class convNet(nn.Module):
             num_features *= s
         return num_features
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = convNet().to(device)
-criterion = SquareHingeLoss()
-optimizer = optim.Adam(model.parameters(),  lr=1e-5)
-
 # split train test data, using Kfold
 cnn_test_acc = []
 for fold_num in range(1, 7):
@@ -153,7 +100,12 @@ for fold_num in range(1, 7):
 
     subtrain_data, valid_data, subtrain_label, valid_label = SplitFolder(train_data, train_label,             
                                                                          sed_fold, 1)
-    
+    # set up model
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = convNet().to(device)
+    criterion = SquareHingeLoss()
+    optimizer = optim.Adam(model.parameters(),  lr=1e-4)
+
     # transfer data
     num_train = subtrain_data.shape[0]
     num_valid = valid_data.shape[0]
@@ -163,14 +115,15 @@ for fold_num in range(1, 7):
     valid_data, valid_label = Typetransfer(valid_data, valid_label, channel)
     test_data, test_label = Typetransfer(test_data, test_label, channel)
 
+
     # init variables
     step = 0
     train_losses, valid_losses, valid_accuracy= [], [], []
     parameters = []
     test_outputs = []
     cnn_test_accuracy = []
-    num_epoch = 50
-    mini_batches = 10
+    num_epoch = 2
+    mini_batches = 5
 
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
@@ -206,7 +159,8 @@ for fold_num in range(1, 7):
                     train_losses.append(train_loss.cpu().data.numpy())
         
                     valid_outputs = model(valid_data)
-                    valid_loss = criterion(valid_outputs, valid_label)  
+                    valid_loss = criterion(valid_outputs, valid_label)
+                    print(valid_loss)
                     valid_losses.append(valid_loss.cpu().data.numpy())
         
                 test_output = model(test_data)
