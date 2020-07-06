@@ -1,18 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jul  6 13:59:28 2020
-
-@author: 苏炜恒
-"""
+## import package
 import torch
 import numpy as np
-import torch.nn as nn
-import pandas as pd
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
-from sklearn import preprocessing
 
 ## split data by folder
 # function to split data
