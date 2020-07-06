@@ -1,5 +1,6 @@
 ## import package
 from function import *
+from data_process import inputs, label, folds_sorted, num_feature
 
 # this fucntion we transfer the data and label type from numpy to tensor
 def Typetransfer(data, label):
@@ -10,28 +11,6 @@ def Typetransfer(data, label):
     label = label.to(device).float()
     
     return data, label
-
-## load the realating csv file
-dir_path = 'Data/'
-inputs_file = 'inputs.csv'
-outputs_file = 'outputs.csv'
-
-inputs = pd.read_csv(dir_path + inputs_file) #used for based line model 
-outputs = pd.read_csv(dir_path + outputs_file)
-folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
-   'neuroblastoma-data/master/data/systematic/cv/sequenceID/folds.csv')
-
-## procssing data
-baseline_label = outputs.values
-num_id = baseline_label.shape[0]
-num_feature = inputs.shape[1] - 1
-seq_id = inputs.iloc[:, 0].to_frame()
-inputs = preprocessing.scale(inputs.iloc[:, 1:])
-inputs = pd.concat([seq_id, pd.DataFrame(inputs)], axis=1)
-inputs = np.array(inputs)
-folds = np.array(folds)
-_, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
-folds_sorted = folds[cor_index] # use for first split
 
 ## define the baseline network
 class LinearNN(nn.Module):
@@ -54,7 +33,7 @@ optimizer = optim.SGD(model.parameters(),  lr=stepsize)
 # split train test data, using Kfold
 line_test_acc = []
 for fold_num in range(1, 7):
-    train_data, test_data, train_label, test_label = SplitFolder(inputs, baseline_label, 
+    train_data, test_data, train_label, test_label = SplitFolder(inputs, label, 
                                                     folds_sorted[:, 1], fold_num)
 
     # split train vlidation data
@@ -84,7 +63,7 @@ for fold_num in range(1, 7):
 
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
-        for index in range(num_train):
+        for index in range(10):
             #model.train()
         
             # init variable
