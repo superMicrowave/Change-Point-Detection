@@ -99,7 +99,7 @@ for fold_num in range(1, 7):
     parameters = []
     test_outputs = []
     cnn_test_accuracy = []
-    num_epoch = 10
+    num_epoch = 3
     mini_batches = 10
 
     ## train the network
