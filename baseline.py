@@ -1,24 +1,5 @@
 ## import package
-import torch
-import pandas as pd
-import numpy as np
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.autograd import Variable
-import matplotlib.pyplot as plt
-
-## all the fucntion
-## split data by folder
-# function to split data
-def SplitFolder(inputs, labels, folders, fold_id):
-    bool_suq = folders == fold_id
-    train_data = inputs[~bool_suq]
-    test_data = inputs[bool_suq]
-    train_label = labels[~bool_suq]
-    test_label = labels[bool_suq]
-
-    return train_data, test_data, train_label, test_label
+from function import *
 
 # this fucntion we transfer the data and label type from numpy to tensor
 def Typetransfer(data, label):
@@ -29,49 +10,6 @@ def Typetransfer(data, label):
     label = label.to(device).float()
     
     return data, label
-
-## squareHangLoss function
-class SquareHingeLoss(nn.Module):
-    def __init__(self):
-        super(SquareHingeLoss,self).__init__()
-    
-    def ifelse(self, x):
-        num = x.size()[0]      
-        if num == 1:
-            flag = x - 1 < 0
-            if flag == True:
-                return (x - 1) ** 2
-            else:
-                return torch.tensor([0.0], requires_grad=True)
-        
-        else:
-            crit = (x - 1 < 0)
-            copy_x = x.clone()
-            copy_x[crit] = (x[crit] - 1) ** 2
-            copy_x[~crit] = 0
-            return torch.sum(copy_x)
-       
-    def forward(self, predicated_y, target_y):
-        num = predicated_y.size()[0]
-   
-        if num == 1:
-            target_y = target_y.view(-1, 1)
-            result = (self.ifelse(predicated_y - target_y[0]) +
-                          self.ifelse(target_y[1] - predicated_y))
-            
-        else:
-            result = (self.ifelse(predicated_y - target_y[:, 0]) +
-                     self.ifelse(target_y[:, 1] - predicated_y)) / num
-        
-        return result
-
-## accuracy function
-def Accuracy(predicated_y, target_y):
-    if (np.logical_and(target_y[0] - predicated_y < 0,
-                         predicated_y - target_y[1] < 0)):
-        return 1
-    else:
-        return 0
 
 ## load the realating csv file
 dir_path = 'Data/'
@@ -87,6 +25,9 @@ folds = pd.read_csv('https://raw.githubusercontent.com/tdhock/'
 baseline_label = outputs.values
 num_id = baseline_label.shape[0]
 num_feature = inputs.shape[1] - 1
+seq_id = inputs.iloc[:, 0].to_frame()
+inputs = preprocessing.scale(inputs.iloc[:, 1:])
+inputs = pd.concat([seq_id, pd.DataFrame(inputs)], axis=1)
 inputs = np.array(inputs)
 folds = np.array(folds)
 _, cor_index = np.where(inputs[:, 0, None] == folds[:, 0])
@@ -99,7 +40,7 @@ class LinearNN(nn.Module):
         self.fc1 = nn.Linear(num_feature, 1)
 
     def forward(self, x):
-        x =  F.relu(self.fc1(x))
+        x =  self.fc1(x)
         return x
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
@@ -107,7 +48,7 @@ model = LinearNN().to(device)
 
 ## define the loss funciton
 criterion = SquareHingeLoss()
-stepsize = 1e-10
+stepsize = 1e-5
 optimizer = optim.SGD(model.parameters(),  lr=stepsize)
 
 # split train test data, using Kfold
@@ -138,13 +79,13 @@ for fold_num in range(1, 7):
     step = 0
     train_losses, valid_losses, valid_accuracy= [], [], []
     test_outputs = []
-    mini_batches = 10
-    num_epoch = 50
+    mini_batches = 5
+    num_epoch = 2
 
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
         for index in range(num_train):
-            model.train()
+            #model.train()
         
             # init variable
             train_loss = 0
@@ -159,7 +100,7 @@ for fold_num in range(1, 7):
 
             # do SGD
             outputs = model(subtrain_data[index])
-            loss = criterion(outputs, subtrain_label[index])
+            loss = criterion(outputs, subtrain_label[index])    
             loss.backward()
         
             optimizer.step()
@@ -174,7 +115,7 @@ for fold_num in range(1, 7):
                     train_losses.append(train_loss.cpu().data.numpy())
         
                     valid_outputs = model(valid_data)
-                    valid_loss = criterion(valid_outputs, valid_label)  
+                    valid_loss = criterion(valid_outputs, valid_label)
                     valid_losses.append(valid_loss.cpu().data.numpy())
         
                 test_output = model(test_data)
