@@ -63,7 +63,7 @@ for fold_num in range(1, 7):
 
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
-        for index in range(10):
+        for index in range(num_train):
             #model.train()
         
             # init variable
