@@ -1,41 +1,7 @@
 
 ## import package
 from function import *
-from data_process import inputs, label, folds_sorted
-
-# this fucntion we transfer the data and label type from numpy to tensor
-def Typetransfer(data, label, channel):
-    num_data = data.shape[0]
-    num_feature = data.shape[1] - 1
-    data = torch.from_numpy(data[:, 1:].astype(float)).view(num_data, channel, num_feature)
-    data = data.type(torch.FloatTensor)
-    data = Variable(data).to(device)
-    label = torch.from_numpy(label[:, 1:].astype(float))
-    label = label.to(device).float()
-    
-    return data, label
-
-# ssp function,based on the AdaptiveMax/Avg method built in torch
-class SpatialPyramidPooling(nn.Module):
-    def __init__(self, mode):
-        super(SpatialPyramidPooling, self).__init__()
-        num_pools = [1, 4, 16]
-        self.name = 'SpatialPyramidPooling'
-        if mode == 'max':
-            pool_func = nn.AdaptiveMaxPool1d
-        elif mode == 'avg':
-            pool_func = nn.AdaptiveAvgPool1d
-        else:
-            raise NotImplementedError(f"Unknown pooling mode '{mode}', expected 'max' or 'avg'")
-        self.pools_fun = []
-        for p in num_pools:
-            self.pools_fun.append(pool_func(p))
-
-    def forward(self, feature_maps):
-        pooled = []
-        for pool_fun in self.pools_fun:
-            pooled.append(pool_fun(feature_maps))
-        return torch.cat(pooled, dim=2)
+from data_process import Scale_inputs, labels, folds_sorted
 
 # build the net work
 class convNet(nn.Module):
@@ -46,7 +12,7 @@ class convNet(nn.Module):
             nn.Conv1d(1, 5, 9), #1 1 117 -> 1 5 109
         )
         self.layer2 = nn.Sequential(
-            nn.Linear(5*21, 1),
+            nn.Linear(5*21, 1)
         )
     
     def forward(self, x):
@@ -62,11 +28,24 @@ class convNet(nn.Module):
         for s in size:
             num_features *= s
         return num_features
+    
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+criterion = SquareHingeLoss()
+inputs = Scale_inputs
+
+model_list = []
+optimizer_list = []
+for num_model in range(6):
+    model = convNet().to(device)
+    optimizer = optim.Adam(model.parameters(),  lr= 1e-5)
+    model_list.append(model)
+    optimizer_list.append(optimizer)
 
 # split train test data, using Kfold
 cnn_test_acc = []
+best_output_list = []
 for fold_num in range(1, 7):
-    train_data, test_data, train_label, test_label = SplitFolder(inputs, label, 
+    train_data, test_data, train_label, test_label = SplitFolder(inputs, labels, 
                                                     folds_sorted[:, 1], fold_num)
 
     # split train vlidation data
@@ -77,21 +56,20 @@ for fold_num in range(1, 7):
     np.random.shuffle(sed_fold)
 
     subtrain_data, valid_data, subtrain_label, valid_label = SplitFolder(train_data, train_label,             
-                                                                         sed_fold, 1)
+                                                                         sed_fold, 2)
     # set up model
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = convNet().to(device)
-    criterion = SquareHingeLoss()
-    optimizer = optim.Adam(model.parameters(),  lr=1e-5)
+    num_model = fold_num - 1
+    model = model_list[num_model]
+    optimizer = optimizer_list[num_model]
 
     # transfer data
     num_train = subtrain_data.shape[0]
     num_valid = valid_data.shape[0]
     num_test = test_data.shape[0]
     channel = 1
-    subtrain_data, subtrain_label = Typetransfer(subtrain_data, subtrain_label, channel)
-    valid_data, valid_label = Typetransfer(valid_data, valid_label, channel)
-    test_data, test_label = Typetransfer(test_data, test_label, channel)
+    subtrain_data, subtrain_label = Typetransfer_3D(subtrain_data, subtrain_label, channel)
+    valid_data, valid_label = Typetransfer_3D(valid_data, valid_label, channel)
+    test_data, test_label = Typetransfer_3D(test_data, test_label, channel)
 
     # init variables
     step = 0
@@ -99,8 +77,8 @@ for fold_num in range(1, 7):
     parameters = []
     test_outputs = []
     cnn_test_accuracy = []
-    num_epoch = 3
-    mini_batches = 10
+    num_epoch = 8
+    mini_batches = 5 
 
     ## train the network
     for epoch in range(num_epoch):  # loop over the dataset multiple times
@@ -137,11 +115,10 @@ for fold_num in range(1, 7):
         
                     valid_outputs = model(valid_data)
                     valid_loss = criterion(valid_outputs, valid_label)
-                    print(valid_loss)
                     valid_losses.append(valid_loss.cpu().data.numpy())
         
                 test_output = model(test_data)
-                test_outputs.append(test_output)
+                test_outputs.append(test_output.cpu().data.numpy())
 
     # choose the min value from valid list
     min_loss_train = min(train_losses)
@@ -149,6 +126,7 @@ for fold_num in range(1, 7):
     min_loss_valid = min(valid_losses)
     best_parameter_value = valid_losses.index(min(valid_losses))
     best_output = test_outputs[best_parameter_value]
+    best_output_list.append(best_output)
 
     # plot
     plt.plot(train_losses, label = 'Training loss')
@@ -160,12 +138,6 @@ for fold_num in range(1, 7):
     plt.ylabel("loss")
     plt.show()
 
-
-    # test data
-    with torch.no_grad():
-        accuracy = 0
-        for index in range(num_test):
-            accuracy = accuracy + Accuracy(best_output[index], test_label[index])
-        cnn_test_acc.append(accuracy/num_valid * 100)
-
-
+cnn_output = pd.DataFrame(best_output_list[0])
+cnn_output = OutputFile(cnn_output, best_output_list)
+cnn_output.to_csv(r'Data/Outputs/cnnModel.csv', index = None, header = False) 
