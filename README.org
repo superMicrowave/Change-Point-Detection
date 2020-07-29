@@ -68,3 +68,6 @@ emacs &
 M-x run-python
 #+END_SRC
 *** 3.3 eval buffer
+
+** 4. Result
+*** 
