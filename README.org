@@ -70,4 +70,4 @@ M-x run-python
 *** 3.3 eval buffer
 
 ** 4. Result
-*** 
+*** https://github.com/superMicrowave/Change-Point-Detection/blob/master/test_accuracy.png
