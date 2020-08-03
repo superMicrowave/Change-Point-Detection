@@ -41,6 +41,9 @@ conda install -c conda-forge pandana
 #+BEGIN_SRC
 conda install -c conda-forge matplotlib
 #+END_SRC
+#+BEGIN_SRC
+conda install -c anaconda scikit-learn
+#+END_SRC
 *** 1.6 Open editor
 #+BEGIN_SRC
 emacs &
@@ -68,3 +71,6 @@ emacs &
 M-x run-python
 #+END_SRC
 *** 3.3 eval buffer
+
+** 4. Result
+*** https://github.com/superMicrowave/Change-Point-Detection/blob/master/test_accuracy.png
