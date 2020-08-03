@@ -1,6 +1,36 @@
 ## import package
 from function import *
-from data_process import MM_inputs, labels, folds_sorted, num_feature
+import sys
+from sklearn import preprocessing
+
+## load the realating csv file
+# get command line argument length.
+argv = sys.argv[1]
+
+## load the realating csv file
+dir_path = argv + '/Inputs/'
+inputs_file = 'inputs.csv.xz'
+outputs_file = 'outputs.csv.xz'
+folds_file = 'folds.csv'
+
+inputs = pd.read_csv(dir_path + inputs_file)
+outputs = pd.read_csv(dir_path + outputs_file)
+folds = pd.read_csv(dir_path + folds_file)
+
+## procssing data
+labels = outputs.values
+num_id = labels.shape[0]
+num_feature = inputs.shape[1] - 1
+seq_id = inputs.iloc[:, 0].to_frame()
+min_max_scaler = preprocessing.MinMaxScaler()
+MM_inputs = min_max_scaler.fit_transform(inputs.iloc[:, 1:])
+MM_inputs = pd.concat([seq_id, pd.DataFrame(MM_inputs)], axis=1)
+MM_inputs = np.array(MM_inputs)
+
+folds = np.array(folds)
+_, cor_index = np.where(MM_inputs[:, 0, None] == folds[:, 0])
+folds_sorted = folds[cor_index] # use for first split
+
 
 ## define the baseline network
 class LinearNN(nn.Module):
@@ -127,7 +157,7 @@ for fold_num in range(1, 7):
 # this fucntion output the csv file
 linear_output = pd.DataFrame(best_output_list[0])
 linear_output = OutputFile(linear_output, best_output_list)
-linear_output.to_csv(r'Data/Outputs/linearModel.csv', index = None, header = False) 
+linear_output.to_csv(argv + '/Outputs/linearModel.csv', index = None, header = False) 
 
 
 
