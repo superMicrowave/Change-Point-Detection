@@ -3,7 +3,8 @@ import numpy as np
 import glob
 from function import Accuracy
 import matplotlib.pyplot as plt
-from data_process import folds_sorted,labels
+from data_process import folds_sorted,labels,argv
+import sys
 
 # function to split data
 def SplitFolder(labels, folders, fold_id):
@@ -13,9 +14,12 @@ def SplitFolder(labels, folders, fold_id):
 
     return train_label, test_label
 
+# get command line argument length.
+argv = sys.argv[1]
+
 # Load data
 ## load the realating csv file
-output_path = 'Data/Outputs/'
+output_path = argv + '/Outputs/'
 outputs_file = 'outputs.csv'
 linearModel_file = 'linearModel.csv'
 cnnModel_file = 'cnnModel.csv'
@@ -71,4 +75,4 @@ plt.scatter(baseline_acc, test_fold_num * ['base'], color='red')
 plt.xlabel("accuracy.percent %")
 plt.ylabel("algorithm")
 plt.tight_layout()
-plt.savefig("test_accuracy.png")
+plt.savefig(argv + '/' + "test_accuracy.png")
