@@ -3,7 +3,6 @@ import numpy as np
 import glob
 from function import Accuracy
 import matplotlib.pyplot as plt
-from data_process import folds_sorted,labels,argv
 import sys
 
 # function to split data
@@ -19,17 +18,27 @@ argv = sys.argv[1]
 
 # Load data
 ## load the realating csv file
+dir_path = argv + '/Inputs/'
 output_path = argv + '/Outputs/'
 outputs_file = 'outputs.csv'
 linearModel_file = 'linearModel.csv'
 cnnModel_file = 'cnnModel.csv'
 L1Model_file = 'L1Model.csv'
 baselineModel_file = 'baselineModel.csv'
+folds_file = 'folds.csv'
+outputs_file = 'outputs.csv.xz'
 
 linear_model = pd.read_csv(output_path + linearModel_file, header = None)
 cnn_model = pd.read_csv(output_path + cnnModel_file, header = None)
 L1_model = pd.read_csv(output_path + L1Model_file, header = None)
 baseline_model = pd.read_csv(output_path + baselineModel_file, header = None)
+folds = pd.read_csv(dir_path + folds_file)
+outputs = pd.read_csv(dir_path + outputs_file)
+labels = outputs.values
+
+folds = np.array(folds)
+_, cor_index = np.where(labels[:, 0, None] == folds[:, 0])
+folds_sorted = folds[cor_index] # use for first split
 
 # split data
 fold_lab_list = []
