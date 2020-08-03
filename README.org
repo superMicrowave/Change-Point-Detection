@@ -44,6 +44,9 @@ conda install -c conda-forge matplotlib
 #+BEGIN_SRC
 conda install -c anaconda scikit-learn
 #+END_SRC
+#+BEGIN_SRC
+conda install -c conda-forge r-sys
+#+END_SRC
 *** 1.6 Open editor
 #+BEGIN_SRC
 emacs &
