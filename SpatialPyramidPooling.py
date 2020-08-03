@@ -1,7 +1,36 @@
 
 ## import package
 from function import *
-from data_process import Scale_inputs, labels, folds_sorted
+import sys
+from sklearn import preprocessing
+
+## load the realating csv file
+# get command line argument length.
+argv = sys.argv[1]
+
+## load the realating csv file
+dir_path = argv + '/Inputs/'
+inputs_file = 'inputs.csv.xz'
+outputs_file = 'outputs.csv.xz'
+folds_file = 'folds.csv'
+
+inputs = pd.read_csv(dir_path + inputs_file)
+outputs = pd.read_csv(dir_path + outputs_file)
+folds = pd.read_csv(dir_path + folds_file)
+
+## procssing data
+labels = outputs.values
+num_id = labels.shape[0]
+num_feature = inputs.shape[1] - 1
+seq_id = inputs.iloc[:, 0].to_frame()
+min_max_scaler = preprocessing.MinMaxScaler()
+Scale_inputs = preprocessing.scale(inputs.iloc[:, 1:])
+Scale_inputs = pd.concat([seq_id, pd.DataFrame(Scale_inputs)], axis=1)
+Scale_inputs = np.array(Scale_inputs)
+
+folds = np.array(folds)
+_, cor_index = np.where(Scale_inputs[:, 0, None] == folds[:, 0])
+folds_sorted = folds[cor_index] # use for first split
 
 # build the net work
 class convNet(nn.Module):
@@ -77,7 +106,7 @@ for fold_num in range(1, 7):
     parameters = []
     test_outputs = []
     cnn_test_accuracy = []
-    num_epoch = 8
+    num_epoch = 7
     mini_batches = 5 
 
     ## train the network
@@ -137,7 +166,14 @@ for fold_num in range(1, 7):
     plt.xlabel("step of every 10 min-bath")
     plt.ylabel("loss")
     plt.show()
+    
+    # test data
+    with torch.no_grad():
+        accuracy = 0
+        for index in range(num_test):
+            accuracy = accuracy + Accuracy(best_output[index], test_label[index].cpu().data.numpy())
+        cnn_test_accuracy.append(accuracy/num_valid * 100)
 
 cnn_output = pd.DataFrame(best_output_list[0])
 cnn_output = OutputFile(cnn_output, best_output_list)
-cnn_output.to_csv(r'Data/Outputs/cnnModel.csv', index = None, header = False) 
+cnn_output.to_csv(argv + '/Outputs/cnnModel.csv', index = None, header = False) 
