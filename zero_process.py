@@ -10,7 +10,7 @@ import pandas as pd
 dir_path = sys.argv[1]
 
 ## load the realating csv file
-labels_path = dir_path + "/outputs.csv.xz"
+labels_path = dir_path + "/outputs.csv"
 input_path = dir_path + "/profiles.csv.xz"
 output_path = dir_path
 

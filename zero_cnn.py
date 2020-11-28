@@ -23,7 +23,7 @@ model_id = sys.argv[2]
 dir_path_split = dir_path.split("cv")
 fold_path_split = dir_path.split("/testFolds/")
 inputs_path = dir_path_split[0] + "zero_inputs.csv.xz"
-labels_path = dir_path_split[0] + "outputs.csv.xz"
+labels_path = dir_path_split[0] + "outputs.csv"
 folds_path = fold_path_split[0] + "/folds.csv"
 fold_num = int(fold_path_split[1])
 outputs_path = dir_path + "/randomTrainOrderings/1/models_test/Cnn_zero_test/" + model_id
@@ -46,8 +46,8 @@ folds_sorted = folds[cor_index] # use for first split
 
 #init the model parameter
 criterion = SquareHingeLoss()
-step = 5e-4
-epoch = 1
+step = 2e-4
+epoch = 1000
 model_id_int = int(model_id)
 model = model_list[model_id_int]
 optimizer = optim.Adam(model.parameters(),  lr= step)
