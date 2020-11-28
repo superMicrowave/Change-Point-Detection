@@ -1,9 +1,18 @@
 import pandas as pd
 import numpy as np
 import glob
-from function import Accuracy
 import matplotlib.pyplot as plt
 import sys
+import os
+
+## accuracy function
+def Accuracy(predicated_y, target_y):
+    if (np.logical_and(target_y[0] - predicated_y <= 0,
+                         predicated_y - target_y[1] <= 0)):
+        return 1
+    else:
+        return 0
+
 
 # function to split data
 def SplitFolder(labels, folders, fold_id):
@@ -14,74 +23,78 @@ def SplitFolder(labels, folders, fold_id):
     return train_label, test_label
 
 # get command line argument length.
-argv = sys.argv[1]
+dir_path = sys.argv[1]
 
-# Load data
 ## load the realating csv file
-dir_path = argv + '/Inputs/'
-output_path = argv + '/Outputs/'
-outputs_file = 'outputs.csv'
-linearModel_file = 'linearModel.csv'
-cnnModel_file = 'cnnModel.csv'
-L1Model_file = 'L1Model.csv'
-baselineModel_file = 'baselineModel.csv'
-folds_file = 'folds.csv'
-outputs_file = 'outputs.csv.xz'
+dir_path_split = dir_path.split("/cv/")
+labels_path = dir_path_split[0] + "/outputs.csv.xz"
+folds_path = dir_path + "/folds.csv"
+input_path = dir_path + "/testFolds"
+output_path = dir_path
+main_path_split = dir_path_split[0].split("/data/")
 
-linear_model = pd.read_csv(output_path + linearModel_file, header = None)
-cnn_model = pd.read_csv(output_path + cnnModel_file, header = None)
-L1_model = pd.read_csv(output_path + L1Model_file, header = None)
-baseline_model = pd.read_csv(output_path + baselineModel_file, header = None)
-folds = pd.read_csv(dir_path + folds_file)
-outputs = pd.read_csv(dir_path + outputs_file)
-labels = outputs.values
+labels = pd.read_csv(labels_path)
+folds = pd.read_csv(folds_path)
 
+labels = labels.values
 folds = np.array(folds)
 _, cor_index = np.where(labels[:, 0, None] == folds[:, 0])
 folds_sorted = folds[cor_index] # use for first split
 
-# split data
-fold_lab_list = []
-for fold_num in range(1, 7):
-    _, fold_lab = SplitFolder(labels, folds_sorted[:, 1], fold_num)
-    fold_lab_list.append(fold_lab)
+model_name_list = []
+# get name of all the model
+for py in glob.glob( input_path + "/1/randomTrainOrderings/1/models/*"):
+    #get model name
+    file_name = os.path.basename(py)
+    name, _ = os.path.splitext(file_name)
+    model_name_list.append(name)
 
-accuracy_list = []
-line_test_acc = []
-cnn_test_acc = []
-baseline_acc = []
+num_model = len(model_name_list)
+print(model_name_list)
 
-# calculate accuracy
-for fold_num in range(6):
-    num = fold_lab_list[fold_num].shape[0]
-     
-    L1_acc = 0
-    linear_acc = 0
-    cnn_acc = 0
-    base_acc = 0
-    for (L1, linear, cnn, base, label) in zip(L1_model.iloc[:, fold_num], 
-                                   linear_model.iloc[:, fold_num], 
-                                      cnn_model.iloc[:, fold_num],
-                                         baseline_model.iloc[:, fold_num],
-                                            fold_lab_list[fold_num]):
-        label = label.reshape(2)
-        L1_acc += Accuracy(L1, label)
-        linear_acc += Accuracy(linear, label)
-        cnn_acc += Accuracy(cnn, label)
-        base_acc += Accuracy(base, label)
+#loop through model name list, for each list, create the relating file
+model_list = []
+for name in model_name_list:
+    file_list = []
+    for file_path in glob.glob( input_path + "/*/randomTrainOrderings/1/models/" 
+                          + name + "/predictions.csv"):
+        #get last column of each file
+        df = pd.read_csv(file_path).iloc[:, -1].values
+        file_list.append(df)
+
+    num_test = len(file_list)
+
+    accuracy_list = []
+    # calculate accuracy
+    for fold_num in range(num_test):
+        _, fold_lab = SplitFolder(labels, folds_sorted[:, 1], fold_num + 1)
+        acc = 0
+        for (data, label) in zip(file_list[fold_num], fold_lab):
+            label = label.reshape(2)
+            acc += Accuracy(data, label)
+        
+        num = fold_lab.shape[0]
+        accuracy_list.append(acc/num * 100)
     
-    accuracy_list.append(L1_acc/num * 100)
-    line_test_acc.append(linear_acc/num * 100)
-    cnn_test_acc.append(cnn_acc/num * 100)
-    baseline_acc.append(base_acc/num * 100)
+    average = sum(accuracy_list)/len(accuracy_list)
+    model_component = [accuracy_list, name, average]
+    model_list.append(model_component)
+model_list.sort(key = lambda model_list: model_list[2]) 
+model_list = np.array(model_list)
+model_accuracy = model_list[:, 0]
+model_name = model_list[:, 1]
 
-test_fold_num = 6
-
-plt.scatter(accuracy_list, test_fold_num * ['L1_pre'], color='black')
-plt.scatter(line_test_acc, test_fold_num * ['Linear'], color='green')
-plt.scatter(cnn_test_acc, test_fold_num * ['Cnn'], color='blue')
-plt.scatter(baseline_acc, test_fold_num * ['base'], color='red')
+for index in range(num_model):
+    plt.scatter(model_accuracy[index], num_test * [model_name[index]], color = "black")
 plt.xlabel("accuracy.percent %")
 plt.ylabel("algorithm")
 plt.tight_layout()
-plt.savefig(argv + '/' + "test_accuracy.png")
+main_name = main_path_split[1]
+sub_name = dir_path_split[1]
+plt.savefig('plot_folder/' + main_name + '_' + sub_name + '.png')
+#plt.savefig("SS_linear_accuracy.png")
+plt.title(main_name + '_' + sub_name)
+    
+    
+    
+    
