@@ -16,10 +16,10 @@ from function import *
 dir_path = sys.argv[1]
 
 ## load the realating csv file
-## load the realating csv file
-labels_path = dir_path + "/outputs.csv.xz"
-input_path = dir_path + "/profiles.csv.xz"
-output_path = dir_path
+dir_path_split = dir_path.split("/cv/")
+labels_path = dir_path_split[0] + "/outputs.csv.xz"
+input_path = dir_path_split[0] + "/profiles.csv.xz"
+output_path = dir_path_split[0]
 
 #init the mean pool
 fix_feature = 500

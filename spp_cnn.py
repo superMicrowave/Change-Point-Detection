@@ -20,7 +20,7 @@ dir_path = sys.argv[1]
 dir_path_split = dir_path.split("cv")
 fold_path_split = dir_path.split("/testFolds/")
 profiles_path = dir_path_split[0] + "profiles.csv.xz"
-labels_path = dir_path_split[0] + "outputs.csv.xz"
+labels_path = dir_path_split[0] + "outputs.csv"
 folds_path = fold_path_split[0] + "/folds.csv"
 fold_num = int(fold_path_split[1])
 outputs_path = dir_path + "/randomTrainOrderings/1/models/"
@@ -70,7 +70,7 @@ class convNet(nn.Module):
 cnn_model = convNet().to(device)
 criterion = SquareHingeLoss()
 step = 5e-5
-epoch = 50
+epoch = 40
 model = convNet().to(device)
 optimizer = optim.Adam(model.parameters(),  lr= step)
 
