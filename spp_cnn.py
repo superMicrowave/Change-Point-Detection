@@ -11,105 +11,65 @@ import sys
 import os
 from function import *
 from sklearn import preprocessing
+from spp_model import *
 
 ## load the realating csv file
 # get command line argument length.
 dir_path = sys.argv[1]
+model_id = sys.argv[2]
 
 ## load the realating csv file
 dir_path_split = dir_path.split("cv")
 fold_path_split = dir_path.split("/testFolds/")
 profiles_path = dir_path_split[0] + "profiles.csv.xz"
-labels_path = dir_path_split[0] + "outputs.csv"
+labels_path = dir_path_split[0] + "outputs.csv.xz"
 folds_path = fold_path_split[0] + "/folds.csv"
 fold_num = int(fold_path_split[1])
-outputs_path = dir_path + "/randomTrainOrderings/1/models/"
-
-# build the net work
-class convNet(nn.Module):
-    def __init__(self):
-        super(convNet, self).__init__()
-        self.spp = SpatialPyramidPooling('max')
-        self.pool =  nn.MaxPool1d(2)
-        self.AdaPool = nn.AdaptiveMaxPool1d(100)
-        self.layer1 = nn.Sequential(
-            nn.Conv1d(1, 4, 9),
-            #nn.RReLU(),
-            #nn.Tanh(),
-        )
-        self.layer2 = nn.Sequential(
-            nn.Conv1d(4, 8, 6),
-            #nn.RReLU(),
-            #nn.Tanh(),
-        )
-        self.layer3 = nn.Sequential(
-            nn.Linear(57*8, 128)
-        )
-        self.layer4 = nn.Sequential(
-            nn.Linear(128, 1)
-        )
-    
-    def forward(self, x):
-        x = self.layer1(x)
-        x = self.pool(x)
-        x = self.layer2(x)
-        x = self.spp(x)
-        x = x.view(-1, self.num_flat_features(x))
-        x = self.layer3(x)
-        x = self.layer4(x)
-        return x
-    
-    def num_flat_features(self, x):
-        size = x.size()[1:]  # all dimensions except the batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
+outputs_path = dir_path + "/randomTrainOrderings/1/models_test/Cnn_spp_test/" + model_id
 
 #init the model parameter
-cnn_model = convNet().to(device)
 criterion = SquareHingeLoss()
 step = 5e-5
-epoch = 40
-model = convNet().to(device)
+epoch = 1
+model_id_int = int(model_id)
+model = model_list[model_id_int]
 optimizer = optim.Adam(model.parameters(),  lr= step)
+min_feature = 500
 
 #save the init model
-if not os.path.exists("model_path/" + dir_path):
-    os.makedirs("model_path/" + dir_path) 
-PATH = "model_path/" + dir_path + 'cifar_net.pth'
+model_path = "model_path/" + dir_path + "/" + model_id
+if not os.path.exists(model_path):
+    os.makedirs(model_path) 
+PATH = model_path + 'cifar_net.pth'
 torch.save(model.state_dict(), PATH)
 
-## get the inputs from profile with correct sequence id order
-profiles = pd.read_csv(profiles_path)
-profiles = np.array(profiles)
+## load the file
+dtypes = { "sequenceID": "category"}
+profiles = pd.read_csv(profiles_path, dtype=dtypes)
 labels = pd.read_csv(labels_path)
-seq_id = list(labels.iloc[:, 0])
-indexes = np.unique(profiles[:, 0], return_index=True)[1]
-num_sequence = indexes.shape[0]
-position = sorted(indexes)
-seq_id_unsort = [profiles[index, 0] for index in position]
-seq_list = []
-for index in range(num_sequence):
-    if(index == num_sequence-1):
-        head = position[index]
-        seq_feature_one = profiles[head:, 2]
-    else:
-        head = position[index]
-        tail = position[index+1]
-        seq_feature_one = profiles[head:tail, 2]
-        
-    N = seq_feature_one.shape[0]
-    seq_feature_one = preprocessing.scale(seq_feature_one)
-    seq_feature_one = torch.from_numpy(seq_feature_one.astype(float)).view(1, 1, N)
-    seq_feature_one = seq_feature_one.type(torch.FloatTensor)
-    seq_feature_one = Variable(seq_feature_one).to(device)
-    seq_id_one = seq_id_unsort[index]
-    seq_one = (seq_id_one, seq_feature_one)
-    seq_list.append(seq_one)
 
-seq_list = [tuple for x in seq_id for tuple in seq_list if tuple[0] == x]
-inputs = [i[1] for i in seq_list]
+## extract all sequence id
+sequenceID = labels["sequenceID"]
+seq_data_list = []
+# loop through all 
+for id in sequenceID:
+    #extract all data from profiels using same id
+    one_object = profiles.loc[profiles["sequenceID"] == id]
+    one_feature = np.array(one_object["signal"].tolist())
+    one_feature = preprocessing.scale(one_feature)
+    #padding data less than 500
+    N = one_feature.shape[0]
+    if N < 500:
+        padding_num = min_feature-N
+        one_feature = np.pad(one_feature, (0, padding_num), 'constant')
+        N = 500
+    #transfter the data type
+    one_feature = torch.from_numpy(one_feature.astype(float)).view(1, 1, N)
+    one_feature = one_feature.type(torch.FloatTensor)
+    one_feature = Variable(one_feature).to(device)
+    #add to list
+    seq_data_list.append(one_feature)
+inputs = seq_data_list
 
 ## get folder
 labels = labels.values
@@ -179,7 +139,7 @@ best_parameter = avg_valid_loss.index(min_loss_valid)
 print(best_parameter)
 
 # init variables for model
-model = convNet().to(device)
+model = model_list[model_id_int]
 model.load_state_dict(torch.load(PATH))
 optimizer = optim.Adam(model.parameters(),  lr= step)
 
@@ -225,8 +185,8 @@ print(accuracy/num_test * 100)
 
 # this fucntion output the csv file
 cnn_output = pd.DataFrame(test_outputs)
-if not os.path.exists(outputs_path + "Cnn_spp_pytorch"):
-    os.mkdir(outputs_path + "Cnn_spp_pytorch") 
-cnn_output.to_csv(outputs_path + 'Cnn_spp_pytorch/predictions.csv') 
+if not os.path.exists(outputs_path):
+    os.makedirs(outputs_path) 
+cnn_output.to_csv(outputs_path + '/predictions.csv') 
 
 
